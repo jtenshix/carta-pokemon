@@ -1,0 +1,477 @@
+<!DOCTYPE html> 
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Carta Bloque con Stickers v71 (JS Native Entrance) - 2026-07-28</title>
+
+    <link rel="stylesheet"
+          href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"
+          integrity="sha512-9usAa10IRO0HhonpyAIVpjrylPvoDwiPUiKdWk5t3PyolY1cOd4DSE0Ga+ri4AuTroPR5aQvXU9xC6qOPnzFeg=="
+          crossorigin="anonymous"
+          referrerpolicy="no-referrer" />
+
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background:
+            radial-gradient(circle at center,
+            #1b1b1f 0%,
+            #0d0d12 35%,
+            #050507 70%,
+            #000000 100%);
+            min-height: 100vh;
+            min-height: 100svh;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: manipulation;
+        }
+
+        .card-container { 
+            width: 85vw;
+            height: auto;
+            aspect-ratio: 300 / 420;
+            max-width: 300px; 
+            position: relative;
+            perspective: 1000px;
+            cursor: grab; 
+            user-select: none;
+            -webkit-user-drag: none;
+            z-index: 10; 
+            /* Estado inicial invisible para la entrada por JS */
+            opacity: 0;
+            transform: scale(0.5);
+            transition: opacity 0.5s ease-out, transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            pointer-events: auto;
+        }
+
+        .card-container.loaded {
+            opacity: 1;
+            transform: scale(1);
+        }
+
+        .card-container:active {
+            cursor: grabbing;
+        }
+
+        .card {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            transform-style: preserve-3d;
+            transition: none;
+            transform: rotateX(0deg) rotateY(0deg);
+            user-select: none;
+            -webkit-user-drag: none;
+        }
+        
+        .card-edge {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #1a1a20;
+            border: 1px solid rgba(255,255,255,0.25);
+            border-radius: 8px;
+            transform: translateZ(0px);
+            pointer-events: none;
+        }
+         
+        .card-face { 
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%; 
+            backface-visibility: hidden;
+            -webkit-backface-visibility: hidden;
+            border-radius: 8px; 
+            overflow: hidden; 
+            user-select: none;
+            -webkit-user-drag: none; 
+        }
+
+        .card-face img.face-background { 
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%; 
+            object-fit: cover;
+            display: block; 
+            pointer-events: none;
+            user-select: none;
+            -webkit-user-drag: none; 
+            z-index: 0;
+        }
+        
+        .card-face.front {
+            transform: rotateY(0deg) translateZ(5px);
+        }
+
+        .card-face.back { 
+            transform: rotateY(180deg) translateZ(5px); 
+            display: flex;
+            flex-direction: column; 
+            justify-content: flex-end; 
+            align-items: center;
+            padding: 12px; 
+            box-sizing: border-box; 
+            background-color: transparent;
+        }
+        
+        .link-buttons {
+            position: relative;
+            z-index: 5;
+            width: 100%; 
+            display: flex;
+            flex-direction: column;
+            gap: 5px; 
+            background: rgba(10, 10, 15, 0.9); 
+            padding: 6px;
+            border-radius: 6px;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+        }
+
+        .link-button {
+            display: flex;
+            align-items: center;
+            justify-content: flex-start; 
+            padding: 5px 8px;
+            border-radius: 8px;
+            background-color: rgba(25, 25, 35, 0.9);
+            color: #ffffff;
+            text-decoration: none;
+            font-family: Arial, sans-serif;
+            font-size: 11px;
+            font-weight: 500;
+            text-align: left; 
+            border: 1px solid rgba(255, 255, 255, 0.15); 
+        }
+
+        .link-button i {
+            margin-right: 6px; 
+            font-size: 13px; 
+            width: 14px; 
+            text-align: center;
+            flex-shrink: 0; 
+        }
+
+        .link-button span {
+             flex-grow: 1;
+             text-align: center;
+             padding-right: 14px;
+        }
+
+        .flip-button {
+            background-color: rgba(255, 255, 255, 0.9);
+            border: none;
+            width: 45px;
+            height: 45px;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: fixed;
+            z-index: 100;
+            bottom: 25px;
+            right: 25px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+        }
+        
+        @media (max-width: 600px) { 
+            .card-container {
+                max-width: 90vw;
+            } 
+            .flip-button {
+                width: 40px;
+                height: 40px;
+                bottom: 20px;
+                right: 20px;
+            } 
+        }
+    </style> 
+</head>
+
+<body>
+
+    <div class="card-container" id="cardContainer">
+        <div class="card" id="interactiveCard">
+            <div class="card-edge"></div>
+
+            <div class="card-face front">
+                <img src="carta_frente.png.jpg.png?v=71" alt="Sticker Frente" id="cardFrontImage" class="face-background"> 
+            </div>
+            
+            <div class="card-face back">
+                 <img src="carta_dorso.png.png?v=71" alt="Sticker Dorso" class="face-background">
+                 
+                 <div class="link-buttons">
+                     <a href="https://www.instagram.com/jtenshi_/" target="_blank" class="link-button instagram">
+                          <i class="fab fa-instagram"></i> 
+                          <span>Instagram</span> 
+                     </a> 
+                     <a href="https://youtube.com/@j-tenshimus1c?si=3MX3w9MmR-XNXWmx" target="_blank" class="link-button youtube">
+                          <i class="fab fa-youtube"></i> 
+                          <span>Canal de YouTube</span>
+                     </a> 
+                     <a href="https://youtu.be/0_QHL7cDYno?si=-gfNkI5mHWKMHbKW" target="_blank" class="link-button youtube-video">
+                          <i class="fas fa-play"></i> 
+                          <span>Ultimo Video Musical</span>
+                     </a> 
+                 </div>
+            </div>
+        </div>
+    </div>
+
+    <button class="flip-button" id="flipButton">
+        <i class="fas fa-sync-alt" style="color: #333; font-size: 18px;"></i>
+    </button>
+    
+    <script>
+        // Disparar la entrada mediante JS puro para asegurar que Safari la ejecute sí o sí
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                document.getElementById('cardContainer').classList.add('loaded');
+            }, 50);
+        });
+
+        const cardContainer = document.getElementById('cardContainer');
+        const cardElement = document.getElementById('interactiveCard');
+        const flipButton = document.getElementById('flipButton');
+        
+        let isDragging = false;
+        let isFlipping = false;
+        let currentFlipRotation = 0; 
+
+        let dragRotationX = 0;
+        let dragRotationY = 0;
+
+        let startX, startY, currentX, currentY;
+        const rotationFactor = 0.32; 
+
+        let velocityX = 0;
+        let velocityY = 0;
+
+        let animationFrameId_Rebound = null;
+        let animationFrameId_Trompo = null; 
+        
+        const flipTransitionDurationMs = 400;
+        const maxDragAngle = 87; 
+
+        function lerp(start, end, amt) {
+            return (1 - amt) * start + amt * end;
+        }
+
+        function easeOutCubic(t) {
+            return (--t) * t * t + 1;
+        }
+
+        function applyRotation(flipRot = currentFlipRotation, dragX = dragRotationX, dragY = dragRotationY) {
+            cardElement.style.transform = `rotateY(${flipRot + dragY}deg) rotateX(${dragX}deg)`;
+        }
+
+        function triggerFlip(targetSideIncrement = 180) {
+            if (isFlipping) return;
+            isFlipping = true;
+            disableDrag();
+            cancelAnimationFrame(animationFrameId_Rebound);
+            animationFrameId_Rebound = null;
+
+            dragRotationX = 0;
+            dragRotationY = 0;
+            velocityX = 0;
+            velocityY = 0;
+
+            currentFlipRotation += targetSideIncrement;
+
+            cardElement.style.transition = `transform ${flipTransitionDurationMs / 1000}s cubic-bezier(0.2, 0.8, 0.2, 1)`;
+            applyRotation();
+
+            setTimeout(() => {
+                isFlipping = false;
+                cardElement.style.transition = 'none';
+                dragRotationX = 0;
+                dragRotationY = 0;
+                applyRotation();
+                enableDrag();
+            }, flipTransitionDurationMs);
+        }
+
+        function startTorbellinoAnimation() { 
+            if (isFlipping || isDragging) return; 
+            isFlipping = true;
+            disableDrag();
+            cancelAnimationFrame(animationFrameId_Rebound);
+            animationFrameId_Rebound = null;
+
+            dragRotationX = 0;
+            dragRotationY = 0;
+            applyRotation(currentFlipRotation, 0, 0);
+
+            const startRot = currentFlipRotation;
+            const totalSpins = 8;
+            const targetRotation = startRot + 180 + (totalSpins * 360);
+            const duration = 2000;
+            let startTime = null;
+
+            cardElement.style.transition = 'none';
+
+            function trompoStep(timestamp) {
+                if (!isFlipping) return;
+                if (!startTime) startTime = timestamp;
+                const elapsed = timestamp - startTime;
+                let progress = Math.min(1, elapsed / duration);
+                const easedProgress = easeOutCubic(progress);
+                const currentAnimRotation = lerp(startRot, targetRotation, easedProgress);
+
+                cardElement.style.transform = `rotateY(${currentAnimRotation}deg) rotateX(0deg)`;
+
+                if (progress < 1) {
+                    animationFrameId_Trompo = requestAnimationFrame(trompoStep);
+                } else {
+                    currentFlipRotation = 180;
+                    isFlipping = false;
+                    cardElement.style.transition = 'none';
+                    applyRotation();
+                    enableDrag();
+                    animationFrameId_Trompo = null;
+                }
+            }
+            animationFrameId_Trompo = requestAnimationFrame(trompoStep);
+        }
+
+        let flipCount = 0;
+        flipButton.addEventListener('click', () => {
+            if (isFlipping || isDragging) return;
+            flipCount++;
+            if (flipCount < 10) {
+                triggerFlip(180);
+            } else {
+                startTorbellinoAnimation();
+            }
+        });
+
+        function handleDragStart(e) {
+            if (isFlipping) return;
+            isDragging = true;
+            cardContainer.style.cursor = 'grabbing';
+            cardElement.style.transition = 'none';
+            cancelAnimationFrame(animationFrameId_Rebound);
+            animationFrameId_Rebound = null;
+
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+            const rect = cardContainer.getBoundingClientRect();
+
+            startX = clientX - (rect.left + rect.width / 2);
+            startY = clientY - (rect.top + rect.height / 2);
+
+            velocityX = 0;
+            velocityY = 0;
+
+            document.addEventListener('mousemove', handleDragMove);
+            document.addEventListener('touchmove', handleDragMove, { passive: false });
+            document.addEventListener('mouseup', handleDragEnd);
+            document.addEventListener('touchend', handleDragEnd);
+            document.addEventListener('mouseleave', handleDragEnd);
+        }
+
+        function handleDragMove(e) {
+            if (!isDragging) return;
+            if (e.touches) e.preventDefault();
+
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+            const rect = cardContainer.getBoundingClientRect();
+
+            currentX = clientX - (rect.left + rect.width / 2);
+            currentY = clientY - (rect.top + rect.height / 2);
+
+            const deltaX = currentX - startX;
+            const deltaY = currentY - startY;
+
+            dragRotationY += deltaX * rotationFactor;
+            dragRotationX -= deltaY * rotationFactor;
+
+            dragRotationX = Math.max(-35, Math.min(35, dragRotationX));
+            
+            if (dragRotationY > maxDragAngle) {
+                dragRotationY = maxDragAngle;
+            } else if (dragRotationY < -maxDragAngle) {
+                dragRotationY = -maxDragAngle;
+            }
+
+            velocityX = deltaX * rotationFactor;
+            velocityY = -deltaY * rotationFactor;
+
+            applyRotation();
+
+            startX = currentX;
+            startY = currentY;
+        }
+
+        function handleDragEnd() {
+            if (!isDragging) return;
+            isDragging = false;
+            cardContainer.style.cursor = 'grab';
+
+            document.removeEventListener('mousemove', handleDragMove);
+            document.removeEventListener('touchmove', handleDragMove);
+            document.removeEventListener('mouseup', handleDragEnd);
+            document.removeEventListener('touchend', handleDragEnd);
+            document.removeEventListener('mouseleave', handleDragEnd);
+
+            if (Math.abs(dragRotationY) >= 60 || Math.abs(velocityX) > 5) {
+                let direction = dragRotationY > 0 ? 180 : -180;
+                dragRotationY = 0;
+                dragRotationX = 0;
+                triggerFlip(direction);
+            } else {
+                animateRebound();
+            }
+        }
+
+        function animateRebound() {
+            if (isDragging || isFlipping) return;
+
+            dragRotationY = lerp(dragRotationY, 0, 0.12);
+            dragRotationX = lerp(dragRotationX, 0, 0.12);
+
+            cardElement.style.transition = 'none';
+            applyRotation();
+
+            if (Math.abs(dragRotationY) > 0.4 || Math.abs(dragRotationX) > 0.4) {
+                animationFrameId_Rebound = requestAnimationFrame(animateRebound);
+            } else {
+                dragRotationY = 0;
+                dragRotationX = 0;
+                applyRotation();
+                animationFrameId_Rebound = null;
+            }
+        }
+
+        function enableDrag() {
+            cardContainer.addEventListener('mousedown', handleDragStart);
+            cardContainer.addEventListener('touchstart', handleDragStart, { passive: false });
+        }
+
+        function disableDrag() {
+            if (isDragging) handleDragEnd();
+            cardContainer.removeEventListener('mousedown', handleDragStart);
+            cardContainer.removeEventListener('touchstart', handleDragStart);
+        }
+
+        enableDrag();
+    </script>
+
+</body>
+</html>
